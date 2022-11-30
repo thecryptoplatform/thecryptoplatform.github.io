@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<!--________________________________________________________________________________________________Head-->
+
+<head>
+
+	<title>thecryptoplatform.io</title>
+
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+<!--________________________________________________________________________________________________Style-->
+
+<style>
+	body { margin: 0; }
+	#background { z-index: -1; position: absolute; background: linear-gradient(#e4e0ba, #fad293); }
+	#menu { z-index: 0; position: absolute; pointer-events: none }
+</style>
+
+</head>
+
+<!--________________________________________________________________________________________________Body-->
+
+<body>
+
+<!--________________________________________________________________________________________________Audio-->
+
+<audio id="play" src="https://www.soundjay.com/buttons/sounds/beep-027.mp3"></audio>
+
+<!--________________________________________________________________________________________________Canvas-->
+
+<canvas id="background"></canvas>
+<canvas id="menu"></canvas>
+
+<!--________________________________________________________________________________________________Import Map-->
+
+<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+<script type="importmap">
+  {
+    "imports": {
+    "three": "https://unpkg.com/three@0.141.0/build/three.module.js",
+    "TWEEN": "https://threejs.org/examples/jsm/libs/tween.module.min.js",
+    "FontLoader": "https://threejs.org/examples/jsm/loaders/FontLoader.js",
+    "TextGeometry": "https://threejs.org/examples/jsm/geometries/TextGeometry.js",
+    "three.interactive": "https://cdn.jsdelivr.net/npm/three.interactive@1.3.0/build/three.interactive.js",
+    "TransformControls": "https://threejs.org/examples/jsm/controls/TransformControls.js"
+    }
+  }
+</script>
+
+<!--________________________________________________________________________________________________Three.js-->
+
+<script type="module">
+
+//__________________________________________________________________________________________________Imports
+
+import * as THREE from 'three';
+import { TWEEN } from 'TWEEN';
+import { FontLoader } from 'FontLoader';
+import { TextGeometry } from 'TextGeometry';
+import { InteractionManager } from 'three.interactive';
+import { TransformControls } from 'TransformControls';
+import { OrbitControls } from 'https://unpkg.com/three@0.141.0/examples/jsm/controls/OrbitControls.js';
+
+//__________________________________________________________________________________________________Scene
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 10000 );
+const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#background'), antialias: true, 	alpha: true});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.setClearColor( 0xffffff, 0 );
+camera.position.z = 1500;
+
+var aspect = window.innerWidth / window.innerHeight;
+var frustumSize = 7;
+const menuScene = new THREE.Scene();
+const menuCamera = new THREE.OrthographicCamera(
+	frustumSize * aspect / - 2,
+	frustumSize * aspect / 2,
+	frustumSize / 2, frustumSize / - 2,
+	0.1,
+	100
+);
+const menuCanvas = document.querySelector('#menu');
+const menuRenderer = new THREE.WebGLRenderer({ alpha: true, canvas: menuCanvas, antialias: true });
+menuRenderer.setPixelRatio(window.devicePixelRatio);
+menuRenderer.setSize( window.innerWidth, window.innerHeight );
+menuRenderer.setClearColor( 0xffffff, 0 );
+menuCamera.position.z = 5;
+var width = window.innerWidth;
+var height = window.innerHeight;
+
+//__________________________________________________________________________________________________Controls
+
+var controls = new OrbitControls( camera, renderer.domElement );
+controls.enablePan = false;
+
+const interactionManager = new InteractionManager( renderer, camera, renderer.domElement);
+const menuInteractionManager = new InteractionManager( renderer, menuCamera, renderer.domElement);
+
+//__________________________________________________________________________________________________Textures
+
+var textureLoader = new THREE.TextureLoader();
+
+//__________________________________________________________________________________________________Fonts
+
+const font = async (fontFile) => {
+	let font = await new Promise(res => new FontLoader().load(fontFile, res));
+	return font;
+};
+
+const openSans = await font('https://raw.githubusercontent.com/Santista1/fonts/main/QuicksandRegular.json');
+
+//__________________________________________________________________________________________________Lights
+
+var ambientLight = new THREE.AmbientLight(0x000000);
+
+var lights = [];
+
+lights[0] = new THREE.PointLight(0xffffff, 0.5, 0);
+lights[0].position.set(200, 0, 0);
+lights[1] = new THREE.PointLight(0xffffff, 0.5, 0);
+lights[1].position.set(0, 200, 0);
+lights[2] = new THREE.PointLight(0xffffff, 0.5, 0);
+lights[2].position.set(0, 100, 100);
+lights[3] = new THREE.AmbientLight(0xffffff, 0.6);
+
+lights.forEach(function(light){
+	scene.add(light);
+})
+
+//__________________________________________________________________________________________________Colors
+
+var Colors = {
+	red:0xf25346,
+	white:0xd8d0d1,
+	brown:0x59332e,
+	pink:0xF5986E,
+	brownDark:0x23190f,
+	blue:0x68c3c0,
+};
+
+//__________________________________________________________________________________________________Basic Geometry
+
+//--------------------------------------------------------------------------------------------------Point
+
+const point = (x = 0, y = 0, z = 0) => { let point = new THREE.Vector3( x, y, z ); return point; };
+
+//--------------------------------------------------------------------------------------------------Torus
+
+function createTorus(r, tubeD, radialSegs, tubularSegs, arc, color, rotationX){
+  var geometry = new THREE.TorusGeometry(r, tubeD, radialSegs, tubularSegs, arc);
+  var material = new THREE.MeshLambertMaterial({ color: color || "#ff7171", transparent: true, opacity: 0.8 });
+  var torus = new THREE.Mesh(geometry, material);
+  torus.rotation.x = rotationX;
+	return torus;
+};
+
+//--------------------------------------------------------------------------------------------------Line
+
+function createLine(){
+  var material = new THREE.LineBasicMaterial({ color: 0x0000ff });
+  var geometry = new THREE.Geometry();
+  geometry.vertices.push(
+		new THREE.Vector3( 0, 10, 0 ),
+		new THREE.Vector3( 0, -10, 0 )
+  );
+  var line = new THREE.Line( geometry, material );
+  return line;
+};
+
+//--------------------------------------------------------------------------------------------------Sphere
+
+function createSphere(params){
+  var geometry = new THREE.SphereGeometry( params.r || 25, 50, 50 );
+  var material = new THREE.MeshPhongMaterial({
+    color: params.color,
+    transparent: true,
+    opacity: 0.8,
+		shininess: 1
+	});
+  var sphere = new THREE.Mesh( geometry, material );
+
+  sphere.position.x = params.x || 0;
+  sphere.position.y = params.y || 0;
+
+  return sphere;
+};
+
+//__________________________________________________________________________________________________Complex Geometry
+
+//--------------------------------------------------------------------------------------------------Atom
+
+// const baseRadius = (width > height ? (height - 40 / 2) : (width - 40 / 2));
+const baseRadius = 1000;
+
+function createValence(ringNumber, electronCount){
+
+  var radius = 20 + (baseRadius / 20) * ringNumber;
+  var ring = createTorus( radius, baseRadius / 600, 20, 100, Math.PI * 2, Colors.pink, 0);
+  var electrons = [];
+  var angleIncrement = (Math.PI * 2) / electronCount;
+  var angle = 0;
+
+  for (var i = 0; i < electronCount; i++) {
+    // Solve for x and y.
+    var posX = radius * Math.cos(angle);
+    var posY = radius * Math.sin(angle);
+    angle += angleIncrement;
+    var electron = createSphere({ r: 15, x: posX, y: posY, color: Colors.pink });
+    electrons.push(electron);
+  };
+
+  var group = new THREE.Group();
+  group.add(ring);
+
+  electrons.forEach(function(electron){
+    group.add(electron);
+  });
+
+  return group;
+};
+
+//__________________________________________________________________________________________________Web elements
+
+//--------------------------------------------------------------------------------------------------Functions
+
+function getRandomIntInclusive(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+function remap(value, low1, high1, low2, high2) {
+  return low2 + (high2 - low2) * (value - low1) / (high1 - low1);
+};
+
+function randomObjectColor(object) {
+	object.material = new THREE.MeshPhongMaterial({
+		color: Math.random() * 0xffffff,
+		map: moonTexture,
+		displacementScale: 0.01,
+		bumpMap: displacementMap,
+		bumpScale: 0.05
+	})
+};
+
+function playSound () {
+  document.getElementById('play').play();
+};
+
+function openUrl (URL) {
+  window.open(URL, '_blank');
+};
+
+function refresh () {
+  location.reload();
+};
+
+//--------------------------------------------------------------------------------------------------Button
+
+let buttonArray = [];
+
+const button = (font, string, size, point, textColor, buttonColor, clickFunction) => {
+
+	let textSetting = { font: font, size: size, height: 1, curveSegments: 12};
+
+	let geometry = new TextGeometry( string, textSetting );
+	let material = new THREE.MeshBasicMaterial( { color: textColor, transparent: true, opacity: 1 } );
+	let text = new THREE.Mesh( geometry,material );
+
+	geometry.computeBoundingBox();
+	const offset = - 0.5 * ( geometry.boundingBox.max.x - geometry.boundingBox.min.x );
+	text.position.set( offset , size / -2 , 0 );
+
+	let capsuleGeometry = new THREE.CapsuleGeometry( size, - offset * 2 , 10 , 20 );
+	let capsuleMaterial = new THREE.MeshBasicMaterial( { color: buttonColor, transparent: true, opacity: 0.3 } );
+	const capsule = new THREE.Mesh( capsuleGeometry, capsuleMaterial );
+	capsule.rotation.z = Math.PI / 2;
+
+	capsule.addEventListener("mouseenter", (event) => {
+		event.target.material = new THREE.MeshBasicMaterial({ color: Colors.blue, transparent: true, opacity: 0.1});
+	});
+	capsule.addEventListener("mouseout", (event) => { event.target.material = capsuleMaterial; });
+	capsule.addEventListener("click", (event) => { clickFunction() } );
+	menuInteractionManager.add(capsule);
+
+	const group = new THREE.Group();
+	buttonArray.push( group );
+	group.add( text );
+  group.add( capsule );
+
+	group.position.x += point.x;
+  group.position.y += point.y;
+  group.position.z += point.z;
+	return group;
+};
+
+//__________________________________________________________________________________________________Geometry Creation
+
+//--------------------------------------------------------------------------------------------------Menu
+
+function delegate () {
+	playSound();
+	openUrl ("https://station.terra.money/stake/terravaloper1zmklffsq3v306jda3h9t9n9xrlcylngcelw333#delegate");
+};
+
+function redelegate () {
+	playSound();
+	openUrl ("https://station.terra.money/stake/terravaloper1zmklffsq3v306jda3h9t9n9xrlcylngcelw333#redelegate");
+};
+
+function undelegate () {
+	playSound();
+	openUrl ("https://station.terra.money/stake/terravaloper1zmklffsq3v306jda3h9t9n9xrlcylngcelw333#undelegate");
+};
+
+function rewards () {
+	playSound();
+	openUrl ("https://station.terra.money/rewards");
+};
+
+function Operator () {
+	playSound();
+	openUrl ("https://finder.terra.money/classic/validator/terravaloper1zmklffsq3v306jda3h9t9n9xrlcylngcelw333");
+};
+
+function thecryptoplatform () {
+	playSound();
+	openUrl ("https://station.terra.money/validator/terravaloper1zmklffsq3v306jda3h9t9n9xrlcylngcelw333");
+};
+
+var x = 4
+
+const createButtons = () => {
+
+	x = window.innerWidth / 500
+
+	let s = 0.17 - remap(window.innerWidth, 1920, 0, 0, 0.07);
+
+	menuScene.add(button( openSans, "Uptime: 99.97%", s , point(-x,2,0) , Colors.red, Colors.pink, playSound));
+	menuScene.add(button( openSans, "Location: Europe", s , point(-x,1,0) , Colors.red, Colors.pink, playSound ));
+	menuScene.add(button( openSans, "Comission: 4.00%", s , point(-x,0,0) , Colors.red, Colors.pink, playSound ));
+	menuScene.add(button( openSans, "Max: 15.00%", s , point(-x,-1,0) , Colors.red, Colors.pink, playSound ));
+	menuScene.add(button( openSans, "Max change: 1.00%", s , point(-x,-2,0) , Colors.red, Colors.pink, playSound ));
+
+	menuScene.add(button( openSans, "Delegate", s , point(x,2,0) , Colors.red, Colors.pink, delegate ));
+	menuScene.add(button( openSans, "Redelegate", s , point(x,1,0) , Colors.red, Colors.pink, redelegate ));
+	menuScene.add(button( openSans, "Undelegate", s , point(x,0,0) , Colors.red, Colors.pink, undelegate ));
+	menuScene.add(button( openSans, "Rewards", s , point(x,-1,0) , Colors.red, Colors.pink, rewards ));
+	menuScene.add(button( openSans, "Operator", s , point(x,-2,0) , Colors.red, Colors.pink, Operator ));
+	menuScene.add(button( openSans, "thecryptoplatform.io", 0.20 , point(0,3,0) , Colors.red, Colors.pink, thecryptoplatform ));
+};
+
+createButtons();
+
+function recreateButtons() {
+
+  buttonArray.forEach((element) => {
+  	menuScene.remove(element); menuInteractionManager.remove(element);
+  });
+
+  buttonArray = [];
+
+	createButtons();
+
+};
+
+//--------------------------------------------------------------------------------------------------Atom
+
+var nucleus = createSphere({ color: Colors.pink });
+scene.add(nucleus);
+
+var shellCounts = [2, 6, 10, 14, 18];
+var valenceCount = 6;
+var valences = [];
+
+for (var i = 1; i <= valenceCount; i++) {
+	var shellCountIndex = (i - 1) % shellCounts.length;
+	var v = createValence(i, shellCounts[shellCountIndex]);
+	valences.push(v);
+	scene.add(v);
+};
+
+//__________________________________________________________________________________________________Animation
+
+var a = true
+
+function animate() {
+	requestAnimationFrame( animate );
+
+	if (camera.position.z > 700 && a) { camera.position.z -= 50 } else { a = false };
+
+	var baseRotation = 0.01;
+	valences.forEach(function(v, i){
+		v.rotation.y += baseRotation - (i * 0.001);
+		v.rotation.x += baseRotation - (i * 0.001);
+		v.rotation.z += baseRotation - (i * 0.001);
+	});
+
+	nucleus.rotation.x += 0.01;
+	nucleus.rotation.y += 0.01;
+
+	menuInteractionManager.update();
+
+	renderer.render( scene, camera );
+	menuRenderer.render( menuScene, menuCamera );
+};
+
+animate();
+
+//__________________________________________________________________________________________________onWindowResize
+
+function onWindowResize() {
+
+	recreateButtons();
+
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize( window.innerWidth, window.innerHeight );
+
+  aspect = window.innerWidth / window.innerHeight;
+
+  menuCamera.left = frustumSize * aspect / - 2;
+  menuCamera.right = frustumSize * aspect / 2;
+  menuCamera.top = frustumSize / 2;
+  menuCamera.bottom = - frustumSize / 2;
+
+  menuCamera.updateProjectionMatrix();
+  menuRenderer.setSize( window.innerWidth, window.innerHeight );
+};
+
+window.addEventListener( 'resize', onWindowResize );
+
+</script>
+
+</body>
+
+<!--________________________________________________________________________________________________/Body-->
+
+</html>
