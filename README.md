@@ -1,1 +1,1 @@
-# thecryptoplatform.github.io
+https://thecryptoplatform.github.io/
